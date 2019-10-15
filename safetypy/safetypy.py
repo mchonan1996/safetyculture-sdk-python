@@ -21,14 +21,12 @@ GUID_PATTERN = '[A-Fa-f0-9]{8}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-Fa-f0-9]{4}-[A-F
 HTTP_USER_AGENT_ID = 'safetyculture-python-sdk'
 
 
-def get_user_api_token(logger):
+def get_user_api_token(logger, username, password):
     """
     Generate iAuditor API Token
     :param logger:  the logger
     :return:        API Token if authenticated else None
     """
-    username = input("iAuditor username: ")
-    password = getpass()
     generate_token_url = "https://api.safetyculture.io/auth"
     payload = "username=" + username + "&password=" + password + "&grant_type=password"
     headers = {
@@ -48,13 +46,13 @@ class SafetyCulture:
         self.current_dir = os.getcwd()
         self.log_dir = self.current_dir + '/log/'
         self.api_url = 'https://api.safetyculture.io/'
-        self.audit_url = self.api_url + 'audits/'
+        self.audit_url = self.api_url + 'audits'
         self.template_search_url = self.api_url + 'templates/search?field=template_id&field=name'
         self.response_set_url = self.api_url + 'response_sets'
         self.get_my_groups_url = self.api_url + 'share/connections'
         self.all_groups_url = self.api_url + 'groups'
         self.add_users_url = self.api_url + 'users'
-        
+
         self.create_directory_if_not_exists(self.log_dir)
         self.configure_logging()
         logger = logging.getLogger('sp_logger')
@@ -170,7 +168,7 @@ class SafetyCulture:
 
         last_modified = modified_after if modified_after is not None else '2000-01-01T00:00:00.000Z'
 
-        search_url = self.audit_url + 'search?field=audit_id&field=modified_at&order=asc&modified_after=' \
+        search_url = self.audit_url + '/search?field=audit_id&field=modified_at&order=asc&modified_after=' \
             + last_modified
         log_string = '\nInitiating audit_discovery with the parameters: ' + '\n'
         log_string += 'template_id    = ' + str(template_id) + '\n'
@@ -234,9 +232,9 @@ class SafetyCulture:
         :param export_format:      desired format of exported document
         :return:                   export job ID obtained from API
         """
-        export_url = self.audit_url + audit_id + '/report'
-        if export_format == 'docx': # convert old command line format 
-            export_format = 'WORD' 
+        export_url = '{0}/{1}/report'.format(self.audit_url, audit_id)
+        if export_format == 'docx': # convert old command line format
+            export_format = 'WORD'
         export_data = {'format': export_format.upper()}
 
         if preference_id is not None:
@@ -268,7 +266,7 @@ class SafetyCulture:
 
         if job_id_is_valid:
             delay_in_seconds = 5
-            poll_url = self.audit_url + audit_id + '/report/' + export_job_id
+            poll_url = '{0}/{1}/report/{2}'.format(self.audit_url, audit_id, export_job_id)
             export_attempts = 1
             poll_status = self.authenticated_request_get(poll_url)
             status = poll_status.json()
@@ -339,7 +337,7 @@ class SafetyCulture:
         :return:            The Content-Type will be the MIME type associated with the media,
                             and the body of the response is the media itself.
         """
-        url = self.audit_url + audit_id + '/media/' + media_id
+        url = '{0}/{1}/media/{2}'.format(self.audit_url, audit_id, media_id)
         response = requests.get(url, headers=self.custom_http_headers, stream=True)
         return response
 
@@ -349,7 +347,7 @@ class SafetyCulture:
         :param audit_id:   Audit ID
         :return:           Web Report link
         """
-        url = self.audit_url + audit_id + '/web_report_link'
+        url = '{0}/{1}/web_report_link'.format(self.audit_url, audit_id)
         response = self.authenticated_request_get(url)
         result = self.parse_json(response.content) if response.status_code == requests.codes.ok else None
         self.log_http_status(response.status_code, 'on GET web report for ' + audit_id)
@@ -411,12 +409,36 @@ class SafetyCulture:
         :param audit_id:  audit_id of document to fetch
         :return:          JSON audit object
         """
-        response = self.authenticated_request_get(self.audit_url + audit_id)
+        response = self.authenticated_request_get('{0}/{1}'.format(self.audit_url, audit_id))
         result = self.parse_json(response.content) if response.status_code == requests.codes.ok else None
         log_message = 'on GET for ' + audit_id
 
         self.log_http_status(response.status_code, log_message)
         return result
+
+    def create_audit(self, template_id, owner_user_id=None):
+        """
+        Starts new audit from a template
+        :param template_id: Template ID to create the audit from
+        :param owner_user_id: User ID of the audit owner (optional)
+        :return:
+        """
+        if owner_user_id is not None:
+            payload = json.dumps({
+                'template_id': template_id,
+                'audit_data': {
+                    'authorship': {
+                        'owner_id': owner_user_id
+                    }
+                }
+            })
+        else:
+            payload = json.dumps({'template_id': template_id})
+
+        response = self.authenticated_request_post(self.audit_url, payload)
+        log_message = 'on POST for new audit with template_id: {0}'.format(
+            template_id)
+        self.log_http_status(response.status_code, log_message)
 
     def create_response_set(self, name, responses):
         """
@@ -570,4 +592,4 @@ class SafetyCulture:
         logger = logging.getLogger('sp_logger')
         status_description = requests.status_codes._codes[status_code][0]
         log_string = str(status_code) + ' [' + status_description + '] status received ' + message
-        logger.info(log_string) if status_code == requests.codes.ok else logger.error(log_string)
+        logger.info(log_string) if status_code == requests.codes.ok or status_code == requests.codes.created else logger.error(log_string)

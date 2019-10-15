@@ -29,6 +29,6 @@ wheels/
 *.egg
 MANIFEST
 .pypirc
-
+.env
 # Development Env
 .vscode/
