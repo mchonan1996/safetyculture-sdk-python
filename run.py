@@ -1,10 +1,10 @@
 import logging
 import os
 
-from dotenv import load_dotenv
+from dotenv import load_dotenv # get rid of if you don't want dotenv
 from safetypy import *
 
-load_dotenv()
+load_dotenv() # get rid of if you don't want dotenv
 logger = logging.getLogger('mc_logger')
 
 
@@ -12,8 +12,8 @@ def exit_with_error(logger, error):
     logger.error(error)
     sys.exit(1)
 
-username = os.getenv('SC_USERNAME')
-password = os.getenv('SC_PASSWORD')
+username = os.getenv('SC_USERNAME') # replace with username if you want
+password = os.getenv('SC_PASSWORD') # replace with password if you want
 
 token = get_user_api_token(logger, username, password)
 print('Got token: %s' % token)
