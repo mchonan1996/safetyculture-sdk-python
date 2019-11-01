@@ -2,6 +2,8 @@
 
 # To get working you'll want to do the following:
 
+* Use Python 3 (pretty sure that's what I've been testing this with)
+
 * Copy the `.env.sample` file and name it `.env`, replacing the details in the file with your own safetyculture info.
 
 * Run `pip install dotenv` in commandline.
